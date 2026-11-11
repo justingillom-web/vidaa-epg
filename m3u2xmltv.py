@@ -86,6 +86,8 @@ def xmltv(chans, days, block):
             if grp:
                 out.append(f'    <desc lang="en">{grp}</desc>')
                 out.append(f'    <category lang="en">{grp}</category>')
+            if c.get("tvg-logo"):
+                out.append(f'    <icon src={quoteattr(c["tvg-logo"])}/>')
             out.append('  </programme>')
             t += step
     out.append('</tv>')
