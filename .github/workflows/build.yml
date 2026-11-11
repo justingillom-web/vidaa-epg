@@ -9,20 +9,33 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - name: Download playlist (keep last good copy on failure)
+        run: |
+          if curl -fsSL --retry 3 --retry-delay 10 -A "Mozilla/5.0" \
+               -o new.m3u https://www.apsattv.com/vidaa.m3u \
+             && grep -q '^#EXTINF' new.m3u; then
+            mv new.m3u vidaa_source.m3u
+            echo "Downloaded fresh playlist"
+          elif [ -f vidaa_source.m3u ]; then
+            echo "::warning::Download failed - using last good copy"
+          else
+            echo "::error::Download failed and no saved copy exists"
+            exit 1
+          fi
       - name: Generate guide
         run: |
           RAW="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main"
-          python3 m3u2xmltv.py https://www.apsattv.com/vidaa.m3u \
+          python3 m3u2xmltv.py vidaa_source.m3u \
             --days 3 --out vidaa --guide-url "$RAW/vidaa.xml.gz"
           gzip -kf vidaa.xml
       - name: Commit
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
-          git add vidaa.xml.gz vidaa_epg.m3u
+          git add vidaa.xml.gz vidaa_epg.m3u vidaa_source.m3u
           git commit -m "Update EPG $(date -u +%F)" || echo "no changes"
           git push
